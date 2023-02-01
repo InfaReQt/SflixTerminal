@@ -1,0 +1,36 @@
+#!/bin/bash
+
+echo "What do you want to watch?"
+read query
+
+# encode query for URL
+encoded_query=$(echo "$query" |  sed 's/ /-/g')
+
+function sentencecase() {
+  if [[ "$@" == "" ]]; then
+    cat | sed 's/.*/\L&/; s/[a-z]*/\u&/g'
+  else
+    printf "%s" "$1" | sed 's/.*/\L&/; s/[a-z]*/\u&/g'
+  fi
+}
+
+# retrieve source code of webpage using curl
+source=$(curl -s https://sflix.se/search/"$encoded_query")
+
+counter=1
+declare -A result
+while read -r line; do
+  if [[ $line =~ "film-poster-ahref" ]]; then
+    href=$(echo "$line" | grep -o 'href=".*"' | cut -d '"' -f 2)
+    name=$(echo "$href" | sed 's;.*/watch-\(.*\)-hd-[0-9]\+$;\1;' | tr '-' ' ' | sentencecase)
+    result[$counter]="$href"
+    echo "$counter. $name"
+    counter=$((counter + 1))
+  fi
+done <<< "$source"
+echo "Make your choice"
+read choice
+
+# open the selected result in the default web browser
+xdg-open "https://sflix.se${result[$choice]}"
+
